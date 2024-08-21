@@ -787,69 +787,6 @@ class Dart : public GBTree {
     auto beforeTime = std::chrono::steady_clock::now();
     bst_tree_t restore = tree_end;
 
-    auto version = (tree_end - 1) / layer_trees();
-    p_out_preds->version = version;
-    predts.version = version;
-    if (use_buffer && tree_end != 0) {
-      std::cout << "use buffer" << std::endl;
-      size_t buffer_size = dart_prediction_buffer_[pid].size();
-      *p_out_preds = dart_prediction_buffer_[pid][buffer_size - 1];
-      std::cout << "idx_drop_ size: " << idx_drop_.size() << std::endl;
-      for (size_t i = 0; i < idx_drop_.size(); i++) {
-        bst_tree_t drop_idx = idx_drop_[i];
-        predts.predictions.Fill(0);
-        predictor->PredictBatch(p_fmat, &predts, model_, drop_idx, drop_idx + 1); 
-        auto w = this->weight_drop_.at(drop_idx);
-        auto group = model_.tree_info.at(drop_idx);
-        CHECK_EQ(p_out_preds->predictions.Size(), predts.predictions.Size());
-
-        size_t n_rows = p_fmat->Info().num_row_;
-        if (predts.predictions.Device().IsCUDA()) {
-          p_out_preds->predictions.SetDevice(predts.predictions.Device());
-          GPUDartPredictDec(p_out_preds->predictions.DeviceSpan(),
-                            predts.predictions.DeviceSpan(), w, n_rows, n_groups,
-                            group);
-        } else {
-          auto &h_out_predts = p_out_preds->predictions.HostVector();
-          auto &h_predts = predts.predictions.HostVector();
-          common::ParallelFor(p_fmat->Info().num_row_, ctx_->Threads(), [&](auto ridx) {
-            const size_t offset = ridx * n_groups + group;
-            h_out_predts[offset] -= (h_predts[offset] * w);
-          });
-        }
-      }
-    } else {
-      for (bst_tree_t i = tree_begin; i < tree_end; i += 1) {
-        // CHECK_GE(i, p_out_preds->version);
-        predts.predictions.Fill(0);
-        auto version = i / layer_trees();
-        p_out_preds->version = version;
-        predts.version = version;
-        predictor->PredictBatch(p_fmat, &predts, model_, i, i + 1); 
-        // Multiple the weight to output prediction.
-        auto w = this->weight_drop_.at(i);
-        auto group = model_.tree_info.at(i);
-        CHECK_EQ(p_out_preds->predictions.Size(), predts.predictions.Size());
-
-        size_t n_rows = p_fmat->Info().num_row_;
-        if (predts.predictions.Device().IsCUDA()) {
-          p_out_preds->predictions.SetDevice(predts.predictions.Device());
-          GPUDartPredictInc(p_out_preds->predictions.DeviceSpan(),
-                            predts.predictions.DeviceSpan(), w, n_rows, n_groups,
-                            group);
-        } else {
-          auto &h_out_predts = p_out_preds->predictions.HostVector();
-          auto &h_predts = predts.predictions.HostVector();
-          common::ParallelFor(p_fmat->Info().num_row_, ctx_->Threads(), [&](auto ridx) {
-            const size_t offset = ridx * n_groups + group;
-            h_out_predts[offset] += (h_predts[offset] * w);
-          });
-        }
-        dart_prediction_buffer_[pid][i] = *p_out_preds;
-        dart_prediction_buffer_[pid][i].valid = true;
-      }
-    }
-
     for (bst_tree_t i = tree_begin; i < tree_end; i += 1) {
       if (training && std::binary_search(idx_drop_.cbegin(), idx_drop_.cend(), i)) {
         continue;
@@ -906,11 +843,6 @@ class Dart : public GBTree {
         GPUDartPredictInc(p_out_preds->predictions.DeviceSpan(),
                           predts.predictions.DeviceSpan(), w, n_rows, n_groups,
                           group);
-        if (!use_buffer) {
-          // std::cout << "store the prediction to buffer: " << i << std::endl;
-          dart_prediction_buffer_[pid][tree_end - 1] = *p_out_preds;
-          dart_prediction_buffer_[pid][tree_end - 1].valid = true;    
-        }
       } else {
         auto &h_out_predts = p_out_preds->predictions.HostVector();
         auto &h_predts = predts.predictions.HostVector();
@@ -918,12 +850,12 @@ class Dart : public GBTree {
           const size_t offset = ridx * n_groups + group;
           h_out_predts[offset] += (h_predts[offset] * w);
         });
-        if (!use_buffer) {
-          // std::cout << "store the prediction to buffer: " << i << std::endl;
-          dart_prediction_buffer_[pid][tree_end - 1] = *p_out_preds;
-          dart_prediction_buffer_[pid][tree_end - 1].valid = true;    
-        }
       }
+    }
+    if (!use_buffer) {
+      // std::cout << "store the prediction to buffer: " << i << std::endl;
+      dart_prediction_buffer_[pid][tree_end - 1] = *p_out_preds;
+      dart_prediction_buffer_[pid][tree_end - 1].valid = true;    
     }
     auto afterTime = std::chrono::steady_clock::now();
     double duration_second = std::chrono::duration<double>(afterTime - beforeTime).count();
