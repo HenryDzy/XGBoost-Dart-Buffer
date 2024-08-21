@@ -1,0 +1,3 @@
+/mnt/weka/home/dengziye/xgboost_m/python-package/CMakeFiles/CMakeTmp/CMakeFiles/cmTC_cc566.dir
+/mnt/weka/home/dengziye/xgboost_m/python-package/CMakeFiles/CMakeTmp/CMakeFiles/edit_cache.dir
+/mnt/weka/home/dengziye/xgboost_m/python-package/CMakeFiles/CMakeTmp/CMakeFiles/rebuild_cache.dir
