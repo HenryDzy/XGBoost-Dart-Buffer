@@ -782,7 +782,6 @@ class Dart : public GBTree {
     }
     dart_prediction_buffer_[pid].resize(tree_end);
     
-    std::cout << "tree_end: " << tree_end << std::endl;
     bool restored = false;
     auto beforeTime = std::chrono::steady_clock::now();
     bst_tree_t restore = tree_end;
@@ -798,13 +797,11 @@ class Dart : public GBTree {
         bst_tree_t max_restored_index = std::min(min_drop_idx, 
                       static_cast<int>(dart_prediction_buffer_[pid].size())) - 1;
         if (max_restored_index >= 0) {
-          std::cout << "max_restored_index: " << max_restored_index << std::endl;
           restored = true;
           i = max_restored_index;
           restore = i;
           PredictionCacheEntry predts_temp = dart_prediction_buffer_[pid][i];
           if (predts_temp.valid) {
-            std::cout << "buffer is valid: " << i << std::endl;
             *p_out_preds = predts_temp;
             continue;
           }
@@ -815,10 +812,8 @@ class Dart : public GBTree {
           }
           i = std::max(tree_end-1, static_cast<bst_tree_t>(0));
           restore = i;
-          std::cout << "restore the final result of the last iteration: " << i << std::endl;
           PredictionCacheEntry predts_temp = dart_prediction_buffer_[pid][i];
           if (predts_temp.valid) {
-            std::cout << "buffer is valid: " << i << std::endl;
             *p_out_preds = predts_temp;
             continue;
           }
@@ -853,16 +848,10 @@ class Dart : public GBTree {
       }
     }
     if (!use_buffer) {
-      // std::cout << "store the prediction to buffer: " << i << std::endl;
       dart_prediction_buffer_[pid][tree_end - 1] = *p_out_preds;
       dart_prediction_buffer_[pid][tree_end - 1].valid = true;    
     }
-    auto afterTime = std::chrono::steady_clock::now();
-    double duration_second = std::chrono::duration<double>(afterTime - beforeTime).count();
-    std::cout << "for-loop takes: " << duration_second << " s" << std::endl;
-
   }
-
 
   void PredictBatch(DMatrix* p_fmat, PredictionCacheEntry* p_out_preds, bool training,
                     bst_layer_t layer_begin, bst_layer_t layer_end) override {
@@ -875,7 +864,6 @@ class Dart : public GBTree {
         min_drop_idx = this->idx_drop_[0];
       }
     }
-    std::cout << "min_drop_index: " << min_drop_idx << std::endl;
     this->PredictBatchImpl(p_fmat, p_out_preds, training, layer_begin, layer_end, use_buffer, min_drop_idx);
   }
 
