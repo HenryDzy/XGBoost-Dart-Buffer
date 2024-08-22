@@ -778,21 +778,21 @@ class Dart : public GBTree {
     // Get the process ID
     pid_t pid = getpid();
     if (dart_prediction_buffer_.find(pid) == dart_prediction_buffer_.end()) {
-      dart_prediction_buffer_.insert(make_pair(pid, std::vector<PredictionCacheEntry>()));
+      dart_prediction_buffer_.emplace(std::make_pair(pid, PredictionCacheEntry()));
     }
-    dart_prediction_buffer_[pid].resize(tree_end);
     
     std::cout << "tree_end: " << tree_end << std::endl;
     bool restored = false;
     auto beforeTime = std::chrono::steady_clock::now();
     bst_tree_t restore = tree_end;
 
-    auto version = (tree_end - 1) / layer_trees();
-    p_out_preds->version = version;
-    predts.version = version;
     if (use_buffer && tree_end != 0) {
-      size_t buffer_size = dart_prediction_buffer_[pid].size();
-      *p_out_preds = dart_prediction_buffer_[pid][buffer_size - 1];
+      auto version = (tree_end - 1) / layer_trees();
+      p_out_preds->version = version;
+      predts.version = version;
+      std::cout << "use buffer" << std::endl;
+      *p_out_preds = dart_prediction_buffer_[pid];
+      std::cout << "idx_drop_ size: " << idx_drop_.size() << std::endl;
       for (size_t i = 0; i < idx_drop_.size(); i++) {
         bst_tree_t drop_idx = idx_drop_[i];
         predts.predictions.Fill(0);
@@ -843,9 +843,9 @@ class Dart : public GBTree {
             h_out_predts[offset] += (h_predts[offset] * w);
           });
         }
-        dart_prediction_buffer_[pid][i] = *p_out_preds;
-        dart_prediction_buffer_[pid][i].valid = true;
-      }
+      }    
+      dart_prediction_buffer_[pid] = *p_out_preds;
+      dart_prediction_buffer_[pid].valid = true;
     }
   }
 
@@ -1083,7 +1083,7 @@ class Dart : public GBTree {
   // Mutex to protect dart_prediction_buffer_
   mutable std::mutex dart_prediction_buffer_mutex_;
   // New member to store prediction outputs of each tree
-  mutable std::unordered_map<pid_t, std::vector<PredictionCacheEntry>> dart_prediction_buffer_;
+  mutable std::unordered_map<pid_t, PredictionCacheEntry> dart_prediction_buffer_;
   // training parameter
   DartTrainParam dparam_;
   /*! \brief prediction buffer */
