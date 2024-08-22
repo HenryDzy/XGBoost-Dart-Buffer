@@ -780,19 +780,12 @@ class Dart : public GBTree {
     if (dart_prediction_buffer_.find(pid) == dart_prediction_buffer_.end()) {
       dart_prediction_buffer_.emplace(std::make_pair(pid, PredictionCacheEntry()));
     }
-    
-    std::cout << "tree_end: " << tree_end << std::endl;
-    bool restored = false;
-    auto beforeTime = std::chrono::steady_clock::now();
-    bst_tree_t restore = tree_end;
 
     if (use_buffer && tree_end != 0) {
       auto version = (tree_end - 1) / layer_trees();
       p_out_preds->version = version;
       predts.version = version;
-      std::cout << "use buffer" << std::endl;
       *p_out_preds = dart_prediction_buffer_[pid];
-      std::cout << "idx_drop_ size: " << idx_drop_.size() << std::endl;
       for (size_t i = 0; i < idx_drop_.size(); i++) {
         bst_tree_t drop_idx = idx_drop_[i];
         predts.predictions.Fill(0);
@@ -818,7 +811,6 @@ class Dart : public GBTree {
       }
     } else {
       for (bst_tree_t i = tree_begin; i < tree_end; i += 1) {
-        // CHECK_GE(i, p_out_preds->version);
         predts.predictions.Fill(0);
         auto version = i / layer_trees();
         p_out_preds->version = version;
@@ -861,7 +853,6 @@ class Dart : public GBTree {
         min_drop_idx = this->idx_drop_[0];
       }
     }
-    std::cout << "min_drop_index: " << min_drop_idx << std::endl;
     this->PredictBatchImpl(p_fmat, p_out_preds, training, layer_begin, layer_end, use_buffer, min_drop_idx);
   }
 
